@@ -11,14 +11,17 @@
 const crypto = require('crypto');
 const twilio = require('twilio');
 
+// Values pasted into Vercel can pick up stray spaces or line breaks, so every setting is trimmed.
+const env = name => (process.env[name] || '').trim();
+
 const cfg = {
-    sid: process.env.TWILIO_ACCOUNT_SID || '',
-    token: process.env.TWILIO_AUTH_TOKEN || '',
-    number: process.env.TWILIO_NUMBER || '',
-    forwardTo: (process.env.FORWARD_TO || '').trim(),
-    alertTo: (process.env.ALERT_SMS_TO || '').split(',').map(s => s.trim()).filter(Boolean),
-    adminKey: process.env.ADMIN_KEY || '',
-    siteName: process.env.SITE_NAME || 'Garland Sewer Repair',
+    sid: env('TWILIO_ACCOUNT_SID'),
+    token: env('TWILIO_AUTH_TOKEN'),
+    number: env('TWILIO_NUMBER'),
+    forwardTo: env('FORWARD_TO'),
+    alertTo: env('ALERT_SMS_TO').split(',').map(s => s.trim()).filter(Boolean),
+    adminKey: env('ADMIN_KEY'),
+    siteName: env('SITE_NAME') || 'Garland Sewer Repair',
 };
 
 const VOICE = { voice: 'Polly.Joanna' };
@@ -32,11 +35,21 @@ function abs(req, path) {
     return baseUrl(req) + path;
 }
 
-// Reject anything that isn't signed by Twilio with our auth token.
+// Reject anything that isn't signed by Twilio with our auth token. Rejections are logged (never the token
+// itself) so the reason shows in Vercel > Logs.
 function fromTwilio(req) {
-    if (!cfg.token) return false;
+    const url = abs(req, req.url);
+    if (!cfg.token) {
+        console.warn(`Refused ${url}: TWILIO_AUTH_TOKEN is not set in Vercel`);
+        return false;
+    }
     const signature = req.headers['x-twilio-signature'] || '';
-    return twilio.validateRequest(cfg.token, signature, abs(req, req.url), req.body || {});
+    const ok = twilio.validateRequest(cfg.token, signature, url, req.body || {});
+    if (!ok) {
+        console.warn(`Refused ${url}: ${signature ? 'signature does not match' : 'no Twilio signature'} `
+            + `(auth token is ${cfg.token.length} characters; Twilio's are 32)`);
+    }
+    return ok;
 }
 
 function sendTwiml(res, response) {
