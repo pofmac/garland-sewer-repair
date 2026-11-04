@@ -8,7 +8,7 @@ Rules for this file:
 
 # Set this to the tracking number (CallRail / CallScaler) before the site goes live, e.g. "(469) 555-0123".
 # While it is empty, call buttons are replaced by a "phone line opening soon" note.
-PHONE = ""
+PHONE = "(469) 991-1528"
 
 BRAND = "Garland Sewer Repair"
 CITY = "Garland"
